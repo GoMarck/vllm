@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pydantic import Field, field_validator
 from pydantic.dataclasses import dataclass
@@ -12,9 +12,11 @@ from vllm.utils.hashing import safe_hash
 
 if TYPE_CHECKING:
     from vllm.model_executor.model_loader import LoadFormats
+    from vllm.model_executor.model_loader.rfork.rfork_worker import RForkWorker
     from vllm.model_executor.model_loader.tensorizer import TensorizerConfig
 else:
     LoadFormats = Any
+    RForkWorker = Any
     TensorizerConfig = Any
 
 logger = init_logger(__name__)
@@ -88,6 +90,9 @@ class LoadConfig:
     in dictionary needs to be double quoted for json parsing. For more details,
     see original doc for `map_location` in https://pytorch.org/docs/stable/generated/torch.load.html
     """
+
+    rfork_worker: Optional[RForkWorker] = None
+    rfork_fallback_load_format: Optional[Union[str, LoadFormats]] = None
 
     def compute_hash(self) -> str:
         """
