@@ -4,6 +4,7 @@ import time
 import torch
 
 from vllm.utils.network_utils import get_ip
+from torch_npu.npu import current_device
 
 logger = logging.getLogger(__name__)
 
@@ -20,18 +21,19 @@ class RForkTransferEngineBackendWorker:
     def init_transfer_engine(self):
         try:
             ### TODO 代引入数据系统 TransferEngine
-            from mooncake.engine import TransferEngine
+            from transfer_engine import TransferEngine
         except ImportError as e:
             raise ImportError(
                 "Please install mooncake for rfork transfer engine: pip install mooncake"
             ) from e
         self.rfork_transfer_engine = TransferEngine()
         local_ip = get_ip()
+        device_id = current_device()
+        rpc_threads = 4
         self.rfork_transfer_engine.initialize(
             local_ip,
-            "P2PHANDSHAKE",
-            "rdma",
-            "" # auto discovery if empty
+            device_id,
+            rpc_threads
         )
         self.rfork_transfer_engine_session_id = f"{local_ip}:{self.rfork_transfer_engine.get_rpc_port()}"
         self._is_initialized = True
