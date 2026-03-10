@@ -93,4 +93,4 @@ class RForkModelLoader(BaseModelLoader):
                 )
                 from vllm.model_executor.model_loader import get_model_loader
                 model_loader = get_model_loader(load_config)
-                return model_loader.load_weights(model, model_config)
+                return model_loader.load_model(vllm_config, model_config)
