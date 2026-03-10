@@ -608,16 +608,24 @@ class GPUModelRunner(
         self.execute_model_state: ExecuteModelState | None = None
         self.kv_connector_output: KVConnectorOutput | None = None
         self.layerwise_nvtx_hooks_registered = False
-        logger.debug("DEBUG VALUE|===value of envs.VLLM_RFORK_ENABLED is %s", envs.VLLM_RFORK_ENABLED)
+        logger.info("DEBUG VALUE| value of envs.VLLM_RFORK_ENABLED is %s", envs.VLLM_RFORK_ENABLED)
         if envs.VLLM_RFORK_ENABLED:
-            self.vllm_config.load_config.rfork_fallback_load_format = self.load_config.load_format
-            self.vllm_config.load_config.load_format = "rfork"
-            self.vllm_config.load_config.rfork_worker = RForkWorker(
-                disaggregation_mode=str(vllm_config.kv_transfer_config.kv_role),
-                node_rank=vllm_config.parallel_config.node_rank,
-                tp_rank=get_tensor_model_parallel_rank(),
-                gpu_id=self.device.index,
-                dtype=str(vllm_config.model_config.dtype), is_draft_model=True)
+            self.load_config.rfork_fallback_load_format = self.load_config.load_format
+            self.load_config.load_format = "rfork"
+            try:
+                self.load_config.rfork_worker = RForkWorker(
+                    disaggregation_mode="kv_both" if vllm_config.kv_transfer_config is None else str(
+                        vllm_config.kv_transfer_config.kv_role),
+                    node_rank=vllm_config.parallel_config.node_rank,
+                    tp_rank=get_tensor_model_parallel_rank(),
+                    gpu_id=self.device.index,
+                    dtype=str(vllm_config.model_config.dtype), is_draft_model=True)
+            except Exception as e:
+                logger.info("DEBUG VALUE| rfork worker init err is %s", str(e))
+            logger.info(
+                "DEBUG VALUE|===value of rfork_fallback_load_format is %s, load_format is %s, rfork_worker is %s",
+                self.load_config.rfork_fallback_load_format, self.load_config.load_format,
+                self.load_config.rfork_worker)
 
     def reset_mm_cache(self) -> None:
         if self.mm_budget:

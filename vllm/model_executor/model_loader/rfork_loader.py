@@ -8,7 +8,6 @@ import torch.nn as nn
 from torch.nn import Module
 import gc
 
-from vllm.model_executor.model_loader import get_model_loader
 from vllm.model_executor.model_loader.base_loader import BaseModelLoader
 
 from vllm.config import ModelConfig, VllmConfig
@@ -28,12 +27,10 @@ class RForkModelLoader(BaseModelLoader):
     def __init__(self, load_config: LoadConfig):
         self.load_config = load_config
 
-    @abstractmethod
     def download_model(self, model_config: ModelConfig) -> None:
         """Download a model so that it can be immediately loaded."""
         raise NotImplementedError
 
-    @abstractmethod
     def load_weights(self, model: nn.Module, model_config: ModelConfig) -> None:
         """Load weights into a model. This standalone API allows
         inplace weights loading for an already-initialized model"""
@@ -43,9 +40,8 @@ class RForkModelLoader(BaseModelLoader):
         self, vllm_config: VllmConfig, model_config: ModelConfig
     ) -> Module | None:
         """Load a model with the given configurations."""
-        load_model_start_time = time.time()
         device_config = vllm_config.device_config
-        load_config = vllm_config.load_config
+        load_config = self.load_config
         load_device = (
             device_config.device if load_config.device is None else load_config.device
         )
@@ -59,6 +55,7 @@ class RForkModelLoader(BaseModelLoader):
 
             logger.debug("Loading weights by rfork on %s ...", load_device)
             logger.info("load_model key: %s", model_key)
+            logger.info("DEBUG VALUE| rfork worker is %s", load_config.rfork_worker)
             # Quantization does not happen in `load_weights` but after it
             try:
                 if not load_config.rfork_worker.pre_transfer(model):
@@ -94,5 +91,6 @@ class RForkModelLoader(BaseModelLoader):
                     "fall back into %s to load model",
                     load_config.load_format,
                 )
+                from vllm.model_executor.model_loader import get_model_loader
                 model_loader = get_model_loader(load_config)
                 return model_loader.load_weights(model, model_config)
