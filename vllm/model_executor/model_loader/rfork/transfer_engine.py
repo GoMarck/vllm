@@ -72,7 +72,7 @@ class RForkTransferEngineBackendWorker:
 
         # Get memory snapshot.
         ## TODO 待引入数据系统 TransferEngine
-        memory_snapshot = torch.cuda.memory.memory_snapshot()
+        memory_snapshot = torch.npu.memory.memory_snapshot()
         weight_blocks_for_reg_mr = []
         for segment in memory_snapshot:
             current_weight_block = None
