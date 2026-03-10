@@ -47,7 +47,7 @@ from vllm.distributed.parallel_state import (
     get_tp_group,
     graph_capture,
     is_global_first_rank,
-    prepare_communication_buffer_for_model,
+    prepare_communication_buffer_for_model, get_tensor_model_parallel_rank,
 )
 from vllm.forward_context import (
     BatchDescriptor,
@@ -171,6 +171,7 @@ from .utils import (
     bind_kv_cache,
     sanity_check_mm_encoder_outputs,
 )
+from ...model_executor.model_loader.rfork.rfork_worker import RForkWorker
 
 if TYPE_CHECKING:
     from vllm.model_executor.model_loader.tensorizer import TensorizerConfig
@@ -607,6 +608,16 @@ class GPUModelRunner(
         self.execute_model_state: ExecuteModelState | None = None
         self.kv_connector_output: KVConnectorOutput | None = None
         self.layerwise_nvtx_hooks_registered = False
+        logger.debug("DEBUG VALUE|===value of envs.VLLM_RFORK_ENABLED is %s", envs.VLLM_RFORK_ENABLED)
+        if envs.VLLM_RFORK_ENABLED:
+            self.vllm_config.load_config.rfork_fallback_load_format = self.load_config.load_format
+            self.vllm_config.load_config.load_format = "rfork"
+            self.vllm_config.load_config.rfork_worker = RForkWorker(
+                disaggregation_mode=str(vllm_config.kv_transfer_config.kv_role),
+                node_rank=vllm_config.parallel_config.node_rank,
+                tp_rank=get_tensor_model_parallel_rank(),
+                gpu_id=self.device.index,
+                dtype=str(vllm_config.model_config.dtype), is_draft_model=True)
 
     def reset_mm_cache(self) -> None:
         if self.mm_budget:
@@ -3645,6 +3656,7 @@ class GPUModelRunner(
                     self.model.set_aux_hidden_state_layers(aux_layers)
                 time_after_load = time.perf_counter()
             self.model_memory_usage = m.consumed_memory
+            self.vllm_config.load_config.rfork_worker.start_seed_service(self.model)
         except torch.cuda.OutOfMemoryError as e:
             msg = (
                 "Failed to load model - not enough GPU memory. "
