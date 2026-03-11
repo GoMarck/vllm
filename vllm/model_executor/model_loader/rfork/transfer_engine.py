@@ -1,12 +1,12 @@
 import requests
-import logging
+from vllm.logger import init_logger
 import time
 import torch
 
 from vllm.utils.network_utils import get_ip, get_open_port, join_host_port
 from torch_npu.npu import current_device
 
-logger = logging.getLogger(__name__)
+logger = init_logger(__name__)
 
 class RForkTransferEngineBackendWorker:
     def __init__(self):
@@ -35,7 +35,7 @@ class RForkTransferEngineBackendWorker:
             device_id,
             rpc_threads
         )
-        self.rfork_transfer_engine_session_id = f"{local_ip}:{self.rfork_transfer_engine.get_rpc_port()}"
+        self.rfork_transfer_engine_session_id = f"{local_hostname}:{self.rfork_transfer_engine.get_rpc_port()}"
         self._is_initialized = True
 
     def is_initialized(self) -> bool:

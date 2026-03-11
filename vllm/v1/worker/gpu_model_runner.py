@@ -3664,7 +3664,6 @@ class GPUModelRunner(
                     self.model.set_aux_hidden_state_layers(aux_layers)
                 time_after_load = time.perf_counter()
             self.model_memory_usage = m.consumed_memory
-            self.vllm_config.load_config.rfork_worker.start_seed_service(self.model)
         except torch.cuda.OutOfMemoryError as e:
             msg = (
                 "Failed to load model - not enough GPU memory. "
