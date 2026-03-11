@@ -35,7 +35,7 @@ class RForkTransferEngineBackendWorker:
             device_id,
             rpc_threads
         )
-        self.rfork_transfer_engine_session_id = f"{local_hostname}:{self.rfork_transfer_engine.get_rpc_port()}"
+        self.rfork_transfer_engine_session_id = local_hostname
         self._is_initialized = True
 
     def is_initialized(self) -> bool:
