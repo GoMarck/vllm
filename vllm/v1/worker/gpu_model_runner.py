@@ -619,7 +619,7 @@ class GPUModelRunner(
                     node_rank=vllm_config.parallel_config.node_rank,
                     tp_rank=get_tensor_model_parallel_rank(),
                     gpu_id=self.device.index,
-                    dtype=str(vllm_config.model_config.dtype), is_draft_model=True)
+                    dtype=str(vllm_config.model_config.dtype), is_draft_model=False)
             except Exception as e:
                 logger.info("DEBUG VALUE| rfork worker init err is %s", str(e))
             logger.info(
