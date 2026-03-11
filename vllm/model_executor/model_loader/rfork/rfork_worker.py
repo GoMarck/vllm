@@ -101,7 +101,7 @@ class RForkWorker:
         if self.rfork_seed is not None:
             return True
 
-        self.wait_seed_available_or_model_mounted()
+        # self.wait_seed_available_or_model_mounted()
         return self.rfork_seed is not None
 
     def is_transfer_succeeded(self) -> bool:
@@ -124,13 +124,13 @@ class RForkWorker:
             logger.exception(f"Unregister memory region failed: {e}")
             return False
 
-    def get_fallback_model_path(self) -> str:
-        if self.get_model_path_thread is not None:
-            self.get_model_path_thread.join()
-        else:
-            self.fallback_model_path = get_model_path(with_weights=True)
-
-        return self.fallback_model_path
+    # def get_fallback_model_path(self) -> str:
+    #     if self.get_model_path_thread is not None:
+    #         self.get_model_path_thread.join()
+    #     else:
+    #         self.fallback_model_path = get_model_path(with_weights=True)
+    #
+    #     return self.fallback_model_path
 
     def pre_transfer(self, model) -> bool:
         try:
