@@ -3,7 +3,7 @@ import logging
 import time
 import torch
 
-from vllm.utils.network_utils import get_ip
+from vllm.utils.network_utils import get_ip, get_open_port, join_host_port
 from torch_npu.npu import current_device
 
 logger = logging.getLogger(__name__)
@@ -27,11 +27,11 @@ class RForkTransferEngineBackendWorker:
                 "Please install mooncake for rfork transfer engine: pip install mooncake"
             ) from e
         self.rfork_transfer_engine = TransferEngine()
-        local_ip = get_ip()
+        local_hostname = join_host_port(get_ip(), get_open_port())
         device_id = current_device()
         rpc_threads = 4
         self.rfork_transfer_engine.initialize(
-            local_ip,
+            local_hostname,
             device_id,
             rpc_threads
         )
@@ -52,7 +52,7 @@ class RForkTransferEngineBackendWorker:
         weight_mr_dict = {}
         for name, weight in model.named_parameters():
             ret = self.rfork_transfer_engine.register_memory(weight.data_ptr(), weight.numel() * weight.element_size())
-            if ret != 0:
+            if ret.is_error():
                 logger.error(f"register memory failed for weight {name}, error: {ret}")
                 return False
             weight_mr_dict[name] = (weight.data_ptr(), weight.numel(), weight.element_size())
@@ -98,7 +98,7 @@ class RForkTransferEngineBackendWorker:
         for weight_block in weight_blocks_for_reg_mr:
             address, size = weight_block
             ret = self.rfork_transfer_engine.register_memory(address, size)
-            if ret != 0:
+            if ret.is_error():
                 logger.error(f"register_memory_region_v2 failed for address {address}, size {size}, error: {ret}")
                 return False
 
@@ -114,7 +114,7 @@ class RForkTransferEngineBackendWorker:
         for weight_block in self.registered_weight_blocks:
             address, _ = weight_block
             ret = self.rfork_transfer_engine.unregister_memory(address)
-            if ret != 0:
+            if ret.is_error():
                 logger.error(f"unregister memory failed for address {address}, error: {ret}")
                 return False
         self.rfork_transfer_engine_weights_info_dict = None
@@ -159,7 +159,7 @@ class RForkTransferEngineBackendWorker:
             seed_ptr_list,
             client_len_list
         )
-        if ret < 0:
+        if ret.is_error():
             logger.error("Failed to transfer weights from remote instance.")
             return False
         end_transfer_tic = time.time()
