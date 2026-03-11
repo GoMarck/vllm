@@ -81,6 +81,9 @@ class RForkModelLoader(BaseModelLoader):
                 self.load_config.rfork_worker.post_transfer()
                 # Set result: failed.
                 self.load_config.rfork_worker.set_transfer_result(False)
+                del model
+                gc.collect()
+                torch.npu.empty_cache()
                 # Cleanup after failed transfer, including unregister RDMA memory regions.
                 if (not self.load_config.rfork_worker.cleanup_after_transfer_failed()):
                     raise RuntimeError("cleanup_after_transfer_failed failed.")
@@ -94,8 +97,4 @@ class RForkModelLoader(BaseModelLoader):
                 )
                 from vllm.model_executor.model_loader import get_model_loader
                 model_loader = get_model_loader(load_config)
-                res = model_loader.load_model(vllm_config, model_config)
-                del model
-                gc.collect()
-                torch.npu.empty_cache()
-                return res
+                return model_loader.load_model(vllm_config, model_config)
