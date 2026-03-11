@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 from abc import ABC, abstractmethod
-import time
 
 import torch
 import torch.nn as nn
@@ -39,7 +38,6 @@ class BaseModelLoader(ABC):
         self, vllm_config: VllmConfig, model_config: ModelConfig
     ) -> nn.Module:
         """Load a model with the given configurations."""
-        load_model_start_time = time.time()
         device_config = vllm_config.device_config
         load_config = vllm_config.load_config
         load_device = (
@@ -53,25 +51,7 @@ class BaseModelLoader(ABC):
                 )
 
             logger.debug("Loading weights on %s ...", load_device)
-            from vllm.model_executor.model_loader.fast_load.fast_load import (
-                fast_load_weights,
-                get_model_key,
-            )
             # Quantization does not happen in `load_weights` but after it
-            try:
-                model_key = get_model_key("model_key")
-            except Exception:
-                model_key = "model_key"
-            logger.info("load_model key: %s", model_key)
-            weight_load_start_time = time.time()
-            fast_load_weights(model, model_key, self.load_weights, model_config)
-            logger.info(
-                "Loading weights took %.2f seconds",
-                time.time() - weight_load_start_time,
-            )
+            self.load_weights(model, model_config)
             process_weights_after_loading(model, model_config, target_device)
-        logger.info(
-            "Model initialization end-to-end took %.2f seconds",
-            time.time() - load_model_start_time,
-        )
         return model.eval()
