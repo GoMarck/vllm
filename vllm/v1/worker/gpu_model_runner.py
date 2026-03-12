@@ -608,7 +608,7 @@ class GPUModelRunner(
         self.execute_model_state: ExecuteModelState | None = None
         self.kv_connector_output: KVConnectorOutput | None = None
         self.layerwise_nvtx_hooks_registered = False
-        logger.info("DEBUG VALUE| value of envs.VLLM_RFORK_ENABLED is %s", envs.VLLM_RFORK_ENABLED)
+        logger.info("value of envs.VLLM_RFORK_ENABLED is %s", envs.VLLM_RFORK_ENABLED)
         if envs.VLLM_RFORK_ENABLED:
             self.load_config.rfork_fallback_load_format = self.load_config.load_format
             self.load_config.load_format = "rfork"
@@ -621,9 +621,9 @@ class GPUModelRunner(
                     gpu_id=self.device.index,
                     dtype=str(vllm_config.model_config.dtype), is_draft_model=False)
             except Exception as e:
-                logger.info("DEBUG VALUE| rfork worker init err is %s", str(e))
-            logger.info(
-                "DEBUG VALUE|===value of rfork_fallback_load_format is %s, load_format is %s, rfork_worker is %s",
+                logger.error("rfork worker init err is %s", str(e))
+            logger.debug(
+                "value of rfork_fallback_load_format is %s, load_format is %s, rfork_worker is %s",
                 self.load_config.rfork_fallback_load_format, self.load_config.load_format,
                 self.load_config.rfork_worker)
 
@@ -3664,6 +3664,7 @@ class GPUModelRunner(
                     self.model.set_aux_hidden_state_layers(aux_layers)
                 time_after_load = time.perf_counter()
             self.model_memory_usage = m.consumed_memory
+            self.vllm_config.load_config.rfork_worker.start_seed_service(self.model)
         except torch.cuda.OutOfMemoryError as e:
             msg = (
                 "Failed to load model - not enough GPU memory. "
