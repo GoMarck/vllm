@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 
+from vllm import envs
 from vllm.config import ModelConfig, VllmConfig
 from vllm.config.load import LoadConfig
 from vllm.logger import init_logger
@@ -54,5 +55,6 @@ class BaseModelLoader(ABC):
             # Quantization does not happen in `load_weights` but after it
             self.load_weights(model, model_config)
             process_weights_after_loading(model, model_config, target_device)
-        vllm_config.load_config.rfork_worker.start_seed_service(model)
+        if envs.VLLM_RFORK_ENABLED and vllm_config.load_config.rfork_worker is not None:
+            vllm_config.load_config.rfork_worker.start_seed_service(model)
         return model.eval()

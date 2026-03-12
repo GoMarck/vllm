@@ -48,20 +48,18 @@ class RForkModelLoader(BaseModelLoader):
         target_device = torch.device(load_device)
         model_key = "model_key"
         with set_default_torch_dtype(model_config.dtype):
-            with target_device:
-                model = initialize_model(
-                    vllm_config=vllm_config, model_config=model_config
-                )
-
-            logger.debug("Loading weights by rfork on %s ...", load_device)
-            logger.info("load_model key: %s", model_key)
-            logger.info("DEBUG VALUE| rfork worker is %s", load_config.rfork_worker)
-            # Quantization does not happen in `load_weights` but after it
+            need_del = False
+            logger.debug("load_model key is %s, rfork worker is %s", model_key, load_config.rfork_worker)
             try:
-                if not load_config.rfork_worker.pre_transfer(model):
-                    raise RuntimeError("pre_transfer failed.")
                 if not load_config.rfork_worker.is_seed_available():
                     raise RuntimeError("seed is not available.")
+                with target_device:
+                    model = initialize_model(
+                        vllm_config=vllm_config, model_config=model_config
+                    )
+                    need_del = True
+                if not load_config.rfork_worker.pre_transfer(model):
+                    raise RuntimeError("pre_transfer failed.")
                 if not load_config.rfork_worker.transfer(model):
                     raise RuntimeError("transfer failed.")
                 if not load_config.rfork_worker.post_transfer():
@@ -78,23 +76,22 @@ class RForkModelLoader(BaseModelLoader):
                 )
                 return model.eval()
             except Exception as e:
+                logger.exception("RFork transfer failed, cleaning up and falling back: %s", e)
                 self.load_config.rfork_worker.post_transfer()
-                # Set result: failed.
                 self.load_config.rfork_worker.set_transfer_result(False)
-                del model
-                gc.collect()
-                torch.npu.empty_cache()
-                # Cleanup after failed transfer, including unregister RDMA memory regions.
-                if (not self.load_config.rfork_worker.cleanup_after_transfer_failed()):
-                    raise RuntimeError("cleanup_after_transfer_failed failed.")
-                # Clear static_forward_context to avoid duplicate layer name errors
-                # when falling back to another load format
+                if need_del:
+                    del model
+                    gc.collect()
+                    torch.npu.empty_cache()
+                    for _ in range(3):
+                        gc.collect()
+                        torch.npu.empty_cache()
+                
                 vllm_config.compilation_config.static_forward_context.clear()
                 self.load_config.load_format = self.load_config.rfork_fallback_load_format
                 logger.info(
                     "fall back into %s to load model",
                     load_config.load_format,
                 )
-                from vllm.model_executor.model_loader import get_model_loader
-                model_loader = get_model_loader(load_config)
-                return model_loader.load_model(vllm_config, model_config)
+                from vllm.model_executor.model_loader import get_model
+                return get_model(vllm_config=vllm_config)
